@@ -19,9 +19,11 @@ def _to_frame(rows: list[list]) -> pd.DataFrame:
     return df.astype(float)
 
 
-def _needs_funding(cfg: BotConfig) -> bool:
-    from .strategies import get_strategy
-    return "funding" in get_strategy(cfg.strategy).requires
+def _needs_funding(cfg: BotConfig, strategy=None) -> bool:
+    if strategy is None:
+        from .strategies import get_strategy
+        strategy = get_strategy(cfg.strategy)
+    return "funding" in strategy.requires
 
 
 def closed_only(bars: pd.DataFrame, bar_seconds: int, now: float | None = None) -> pd.DataFrame:
@@ -118,7 +120,7 @@ def attach_funding(bars: pd.DataFrame, funding: pd.Series, bar_seconds: int) -> 
     return out
 
 
-def load_history(cfg: BotConfig, exchange=None, refresh: bool = True) -> pd.DataFrame:
+def load_history(cfg: BotConfig, exchange=None, refresh: bool = True, strategy=None) -> pd.DataFrame:
     """Cached CSV + incremental refresh from the exchange."""
     path = Path(cfg.data_dir) / f"{cfg.exchange}_{cfg.symbol.replace('/', '-')}_{cfg.timeframe}.csv"
     cached = None
@@ -138,7 +140,7 @@ def load_history(cfg: BotConfig, exchange=None, refresh: bool = True) -> pd.Data
         old_funding = cached["funding"] if cached is not None and "funding" in cached else None
         cached = fresh if cached is None else pd.concat([cached[COLS], fresh])
         cached = cached[~cached.index.duplicated(keep="last")].sort_index()
-        if _needs_funding(cfg):
+        if _needs_funding(cfg, strategy):
             known = old_funding.dropna() if old_funding is not None else pd.Series(dtype=float)
             start = cached.index[0] if known.empty else known.index[-1] - pd.Timedelta(days=3)
             f = fetch_funding(exchange, perp_symbol(cfg), int(start.timestamp() * 1000))
@@ -152,7 +154,7 @@ def load_history(cfg: BotConfig, exchange=None, refresh: bool = True) -> pd.Data
         cached.to_csv(path, encoding="utf-8")
     if cached is None:
         raise FileNotFoundError(f"no cached data at {path}")
-    if _needs_funding(cfg) and ("funding" not in cached or cached["funding"].notna().sum() == 0):
+    if _needs_funding(cfg, strategy) and ("funding" not in cached or cached["funding"].notna().sum() == 0):
         raise RuntimeError(f"{cfg.strategy} needs funding data; run `quantstack fetch` (not --offline)")
     return cached.tail(cfg.history_bars)
 

@@ -84,6 +84,19 @@ class ForwardConfig:
     # Optional: ONE candidate also trades on the exchange DEMO account (fake money,
     # real order path). e.g. "funding_crowding" or {"strategy": ..., "symbol": ...}
     demo_candidate: object = None
+    # Rounds: every `round_hours` the day's results are recorded; with rotate on,
+    # the worst candidate (by cumulative return, after min_rounds) is retired and
+    # new hypotheses fill up to max_active. Every candidate ever counts as a trial.
+    round_hours: float = 24
+    rotate: bool = False
+    max_active: int = 8
+    min_rounds: int = 1
+    generator: str = "builtin"          # builtin (free) | claude (API, one call per new hypothesis)
+    seed: int = 0
+    # Weekly review: every review_days, rank active candidates by live Sharpe, keep
+    # the top keep_top, retire the rest, write a report (`quantstack weekly`).
+    review_days: float = 7
+    keep_top: int = 5
 
 
 @dataclass

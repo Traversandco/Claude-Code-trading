@@ -7,6 +7,8 @@
   forward      forward-test all candidates side by side on simulated accounts
   scoreboard   forward-test results, deflated for every candidate ever registered
   search       validate every strategy on real data, ranked; stops at the first that passes
+  rounds       forward-test round history: each 24h result, what was retired and added
+  weekly       the weekly review: top strategies with return, Sharpe, drawdown, trades, fees
   status       show bot state and validation status
   kill         create the kill switch (bot flattens and halts on next check)
   resume       clear a halt (human decision)
@@ -209,6 +211,18 @@ def cmd_search(args) -> int:
     return 0 if any(r["verdict"] == "PASS" for r in rows) else 1
 
 
+def cmd_rounds(args) -> int:
+    from .forward import format_rounds, load_rounds
+    print(format_rounds(load_rounds(_cfg(args)), last=args.last))
+    return 0
+
+
+def cmd_weekly(args) -> int:
+    from .forward import format_weekly, load_weekly
+    print(format_weekly(load_weekly(_cfg(args), args.week)))
+    return 0
+
+
 def cmd_status(args) -> int:
     from .gates import check_report, load_report
     cfg = _cfg(args)
@@ -284,6 +298,7 @@ def main(argv=None) -> int:
 
     for name, fn in (("fetch", cmd_fetch), ("validate", cmd_validate), ("run", cmd_run),
                      ("forward", cmd_forward), ("scoreboard", cmd_scoreboard), ("search", cmd_search),
+                     ("rounds", cmd_rounds), ("weekly", cmd_weekly),
                      ("status", cmd_status), ("kill", cmd_kill), ("resume", cmd_resume),
                      ("hypothesize", cmd_hypothesize), ("review", cmd_review)):
         p = sub.add_parser(name)
@@ -296,6 +311,10 @@ def main(argv=None) -> int:
             p.add_argument("--once", action="store_true", help="process one bar and exit")
         if name == "scoreboard":
             p.add_argument("--json", action="store_true")
+        if name == "rounds":
+            p.add_argument("--last", type=int, default=5)
+        if name == "weekly":
+            p.add_argument("--week", type=int, default=None)
         if name == "search":
             p.add_argument("strategies", nargs="*", help="default: every registered strategy")
             p.add_argument("--target-sharpe", type=float, default=None)

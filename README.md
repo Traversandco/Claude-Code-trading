@@ -86,7 +86,7 @@ z-score, and a `shift(-1)`.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-pytest                          # 79 tests, offline
+pytest                          # 89 tests, offline
 quantstack demo                 # full pipeline on synthetic noise vs. a planted edge
 ```
 
@@ -156,6 +156,8 @@ cannot. `quantstack forward` runs every candidate side by side, each on its own
 ```bash
 quantstack forward        # runs until stopped; every candidate, every bar
 quantstack scoreboard     # returns, Sharpe, drawdown, trades, fees, verdict
+quantstack rounds         # each 24h round: results, who was retired, what was added
+quantstack weekly         # the weekly top-5 report
 ```
 
 - **Paper only, always.** Unvalidated strategies never reach the exchange, even with
@@ -173,6 +175,30 @@ quantstack scoreboard     # returns, Sharpe, drawdown, trades, fees, verdict
   anything else.
 - **It informs; it does not unlock.** A PROMISING candidate still has to pass
   `quantstack validate` before `quantstack run` will trade it.
+
+### Daily rounds and the weekly top 5
+
+With `forward.rotate: true` (on in `config.intraday.example.yaml`):
+
+- **Every 24 hours a round closes.** Each candidate's day is logged (`quantstack rounds`).
+  The candidate with the lowest total return is retired and a new hypothesis takes its
+  place, keeping `max_active` candidates running.
+- **Every 7 days a weekly review** ranks active candidates by live Sharpe, keeps the top
+  5, retires the rest, and saves a report (`quantstack weekly`): return, Sharpe, max
+  drawdown, trades, fees, bars, and the deflated verdict.
+- **New hypotheses are specs, never code.** A spec picks a family (trend, breakout,
+  reversion, session, volatility, funding), values from a fixed menu, and up to two
+  filters (trend, hours, funding cap), all causal by construction. `generator: builtin`
+  samples the menu for free; `generator: claude` has Claude choose from the same menu
+  (one API call per new hypothesis, schema-constrained, re-validated, and falling back
+  to the built-in sampler on any error).
+- **Nothing is forgotten.** Retired candidates stay in the registry and keep counting
+  as trials. A config strategy retired by the experiment stays retired.
+
+A single day or week is mostly noise: in a simulated week on pure random data, the top
+candidate showed a Sharpe of 8.5. Ranks tell you what to keep watching; only the
+verdict column says whether anything is real, and real money still needs
+`quantstack validate`.
 
 ## What the bot does every bar
 

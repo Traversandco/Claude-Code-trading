@@ -33,6 +33,8 @@ from .trials import TrialLedger
 def code_hash(strategy: Strategy) -> str:
     src = "".join(inspect.getsource(m) for m in (engine, sizing, walkforward, strategy_base))
     src += inspect.getsource(type(strategy))
+    if getattr(strategy, "spec", None) is not None:      # spec-defined strategies
+        src += json.dumps(strategy.spec, sort_keys=True)
     return hashlib.sha256(src.encode()).hexdigest()[:16]
 
 

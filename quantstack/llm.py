@@ -122,3 +122,75 @@ def adversarial_review(strategy, report_summary: dict) -> str:
 
 def hypothesize(symbol: str, timeframe: str) -> str:
     return _call(HYPOTHESIS_PROMPT.format(symbol=symbol, timeframe=timeframe), "(no code yet)")
+
+
+# ---------------- hypothesis generation for forward-test rounds ----------------
+
+SPEC_PROMPT = """You are the hypothesis role in a disciplined crypto research loop. Propose ONE
+new long-only strategy for {symbol} on {timeframe} bars, built ONLY from the menu below.
+State the economic mechanism: who is on the other side and why they lose. Prefer a
+mechanism that the results so far have NOT already tested. Do not chase the best
+recent day: single-day results are mostly noise, and every idea you add raises the
+bar for all of them.
+
+Menu (family -> parameter: allowed values):
+{families}
+
+Optional filters (at most 2):
+{filters}
+
+Already tried (do not repeat): {taken}
+
+Recent round results (return per 24h round, most recent last):
+{history}
+"""
+
+SPEC_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "family": {"type": "string", "enum": []},           # filled in at call time
+        "params": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "value": {"type": "number"}},
+            "required": ["name", "value"], "additionalProperties": False}},
+        "filters": {"type": "array", "items": {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string", "enum": []},
+                "values": {"type": "array", "items": {
+                    "type": "object",
+                    "properties": {"name": {"type": "string"}, "value": {"type": "number"}},
+                    "required": ["name", "value"], "additionalProperties": False}}},
+            "required": ["type", "values"], "additionalProperties": False}},
+        "mechanism": {"type": "string"},
+    },
+    "required": ["family", "params", "filters", "mechanism"],
+    "additionalProperties": False,
+}
+
+
+def propose_spec(history: list[dict], taken: list[str], symbol: str = "BTC/USDT",
+                 timeframe: str = "15m") -> dict:
+    """Ask Claude for one new spec. The reply can only select menu items, and it is
+    validated against the menu again before use; nothing is ever executed."""
+    import copy
+
+    from .strategies.generated import FAMILIES, FILTERS, validate_spec
+    schema = copy.deepcopy(SPEC_SCHEMA)
+    schema["properties"]["family"]["enum"] = sorted(FAMILIES)
+    schema["properties"]["filters"]["items"]["properties"]["type"]["enum"] = sorted(FILTERS)
+    hist = [{"round": h.get("round"),
+             "results": [(r["strategy"], r["round_return_pct"]) for r in h.get("results", [])]}
+            for h in history[-10:]]
+    prompt = SPEC_PROMPT.format(symbol=symbol, timeframe=timeframe,
+                                families=json.dumps(FAMILIES), filters=json.dumps(FILTERS),
+                                taken=", ".join(taken[-50:]) or "none", history=json.dumps(hist))
+    raw = json.loads(_call(prompt, "(menu only; no code)", schema=schema, effort="medium"))
+    spec = {
+        "family": raw["family"],
+        "params": {p["name"]: p["value"] for p in raw["params"]},
+        "filters": [{"type": f["type"], **{v["name"]: v["value"] for v in f["values"]}}
+                    for f in raw["filters"]],
+        "mechanism": raw["mechanism"],
+    }
+    return validate_spec(spec)

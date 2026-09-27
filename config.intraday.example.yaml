@@ -51,3 +51,13 @@ forward:
     - ml_direction
     - {strategy: session_breakout, symbol: ETH/USDT}
   demo_candidate: session_breakout
+  # Every 24h a round closes: results are logged (`quantstack rounds`), the candidate
+  # with the lowest total return is retired and a new hypothesis takes its place.
+  # Retired candidates keep counting as trials, so the scoreboard stays honest.
+  round_hours: 24
+  rotate: true
+  max_active: 8
+  min_rounds: 1
+  generator: builtin       # builtin = free menu sampler | claude = Claude picks (needs ANTHROPIC_API_KEY)
+  review_days: 7           # weekly: rank by live Sharpe, keep the top 5, retire the rest
+  keep_top: 5              # see it with `quantstack weekly`
