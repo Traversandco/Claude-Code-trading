@@ -74,7 +74,7 @@ class BotConfig:
     symbol: str = "BTC/USDT"
     timeframe: str = "1d"
     strategy: str = "ts_momentum"
-    mode: str = "paper"                 # paper | testnet | live
+    mode: str = "paper"                 # paper | testnet | demo | live
     history_bars: int = 1_500
     fee_bps: float = 5.0
     slippage_bps: float = 3.0
@@ -104,8 +104,8 @@ class BotConfig:
         )
 
     def validate(self) -> None:
-        if self.mode not in ("paper", "testnet", "live"):
-            raise ValueError(f"mode must be paper, testnet or live, got {self.mode!r}")
+        if self.mode not in ("paper", "testnet", "demo", "live"):
+            raise ValueError(f"mode must be paper, testnet, demo or live, got {self.mode!r}")
         if self.timeframe not in PERIODS_PER_YEAR:
             raise ValueError(f"unsupported timeframe {self.timeframe!r}")
         if self.fee_bps <= 0 or self.slippage_bps <= 0:
@@ -121,7 +121,7 @@ class BotConfig:
 
 
 def load_config(path: str | Path) -> BotConfig:
-    raw = yaml.safe_load(Path(path).read_text()) or {}
+    raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
     risk = RiskConfig(**raw.pop("risk", {}) or {})
     gates = GateConfig(**raw.pop("gates", {}) or {})
     cfg = BotConfig(**raw, risk=risk, gates=gates)

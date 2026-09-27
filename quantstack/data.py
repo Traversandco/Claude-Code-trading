@@ -25,11 +25,15 @@ def closed_only(bars: pd.DataFrame, bar_seconds: int, now: float | None = None) 
     return bars[bars.index + pd.Timedelta(seconds=bar_seconds) <= now_ts]
 
 
-def make_exchange(exchange_id: str, testnet: bool = False, auth: bool = False):
+def make_exchange(exchange_id: str, testnet: bool = False, auth: bool = False, demo: bool = False):
     import os
 
     import ccxt
-    params = {"enableRateLimit": True}
+    params = {
+        "enableRateLimit": True,
+        # Spot bot: never let an exchange's default (Bybit: perpetual swaps) leak in.
+        "options": {"defaultType": "spot", "adjustForTimeDifference": True},
+    }
     if auth:
         params["apiKey"] = os.environ["QUANTSTACK_API_KEY"]
         params["secret"] = os.environ["QUANTSTACK_API_SECRET"]
@@ -38,6 +42,9 @@ def make_exchange(exchange_id: str, testnet: bool = False, auth: bool = False):
     ex = getattr(ccxt, exchange_id)(params)
     if testnet:
         ex.set_sandbox_mode(True)
+    if demo:
+        # Demo trading (e.g. Bybit): real market prices, simulated account.
+        ex.enable_demo_trading(True)
     return ex
 
 
@@ -65,7 +72,7 @@ def load_history(cfg: BotConfig, exchange=None, refresh: bool = True) -> pd.Data
     path = Path(cfg.data_dir) / f"{cfg.exchange}_{cfg.symbol.replace('/', '-')}_{cfg.timeframe}.csv"
     cached = None
     if path.exists():
-        cached = pd.read_csv(path, index_col=0, parse_dates=True)
+        cached = pd.read_csv(path, index_col=0, parse_dates=True, encoding="utf-8")
         cached.index = pd.to_datetime(cached.index, utc=True)
     if refresh:
         exchange = exchange or make_exchange(cfg.exchange)
@@ -80,7 +87,7 @@ def load_history(cfg: BotConfig, exchange=None, refresh: bool = True) -> pd.Data
         cached = fresh if cached is None else pd.concat([cached, fresh])
         cached = cached[~cached.index.duplicated(keep="last")].sort_index()
         path.parent.mkdir(parents=True, exist_ok=True)
-        cached.to_csv(path)
+        cached.to_csv(path, encoding="utf-8")
     if cached is None:
         raise FileNotFoundError(f"no cached data at {path}")
     return cached.tail(cfg.history_bars)

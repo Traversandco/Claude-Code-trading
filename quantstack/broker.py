@@ -55,14 +55,14 @@ class PaperBroker(Broker):
         self.price_fn = price_fn
         self._price: float | None = None
         if self.path.exists():
-            self.state = json.loads(self.path.read_text())
+            self.state = json.loads(self.path.read_text(encoding="utf-8"))
         else:
             self.state = {"cash": float(initial_cash), "units": 0.0, "fills": []}
             self._save()
 
     def _save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self.state, indent=2))
+        self.path.write_text(json.dumps(self.state, indent=2), encoding="utf-8")
 
     def set_price(self, price: float) -> None:
         self._price = float(price)
@@ -132,7 +132,10 @@ class CcxtBroker(Broker):
         price = self.last_price()
         if amount <= 0 or amount < min_amt or amount * price < min_cost:
             return None
-        order = self.ex.create_order(self.symbol, "market", side, amount)
+        # Some venues (Bybit classic accounts, OKX in quote mode) size market BUYS in
+        # quote currency and need a price to convert; others ignore it for market orders.
+        order = self.ex.create_order(self.symbol, "market", side, amount,
+                                     price if side == "buy" else None)
         try:
             order = self.ex.fetch_order(order["id"], self.symbol)
         except Exception:

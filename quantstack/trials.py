@@ -23,7 +23,7 @@ class TrialLedger:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._entries: dict[str, dict] = {}
         if self.path.exists():
-            for line in self.path.read_text().splitlines():
+            for line in self.path.read_text(encoding="utf-8").splitlines():
                 if line.strip():
                     e = json.loads(line)
                     self._entries[e["key"]] = e
@@ -38,7 +38,7 @@ class TrialLedger:
             "key": key, "ts": time.time(), "strategy": strategy, "params": params,
             "universe": universe, "sharpe_pp": sharpe_per_period, "n_obs": n_obs,
         }
-        with self.path.open("a") as f:
+        with self.path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(e, default=str) + "\n")
         self._entries[key] = e
         return True

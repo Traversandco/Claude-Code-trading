@@ -17,6 +17,7 @@ class FakeExchange:
         self.rows = [[(start + i * DAY) * 1000, 100 + i, 101 + i, 99 + i, 100.5 + i, 10.0] for i in range(n)]
         self.calls = 0
         self.orders = []
+        self.prices = []
         self.balance = {"BTC": {"total": 0.0}, "USDT": {"total": 10_000.0}}
 
     # data
@@ -41,8 +42,9 @@ class FakeExchange:
     def amount_to_precision(self, symbol, amount):
         return f"{int(amount * 1e4) / 1e4:.4f}"
 
-    def create_order(self, symbol, type_, side, amount):
+    def create_order(self, symbol, type_, side, amount, price=None):
         self.orders.append((type_, side, amount))
+        self.prices.append(price)
         return {"id": str(len(self.orders))}
 
     def fetch_order(self, oid, symbol):
@@ -74,6 +76,9 @@ def test_ccxt_broker_respects_precision_and_minimums():
     assert b.market_order("buy", 0.0004) is None             # 0.0004*20k = $8 < $10 min cost
     f = b.market_order("buy", 0.012345)
     assert ex.orders[-1] == ("market", "buy", 0.0123)        # precision applied
+    assert ex.prices[-1] == 20_000.0                         # lets quote-sized venues (Bybit classic) convert
+    b.market_order("sell", 0.01)
+    assert ex.prices[-1] is None
     assert f.price == 20_010.0 and f.fee == 1.23 and f.units == 0.0123
     assert b.equity(20_000.0) == 10_000.0
 
@@ -130,3 +135,13 @@ def test_cli_demo_runs_offline(capsys):
     assert main(["demo", "--bars", "900"]) == 0
     out = capsys.readouterr().out
     assert "pure noise" in out and "planted momentum edge" in out
+
+
+def test_make_exchange_bybit_spot_demo_and_clock_sync():
+    from quantstack.data import make_exchange
+    ex = make_exchange("bybit", demo=True)
+    assert ex.options["defaultType"] == "spot"
+    assert ex.options["adjustForTimeDifference"] is True
+    assert "api-demo" in str(ex.urls["api"])
+    live = make_exchange("bybit")
+    assert "api-demo" not in str(live.urls["api"]) and "testnet" not in str(live.urls["api"])

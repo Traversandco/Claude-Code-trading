@@ -48,20 +48,20 @@ class Runner:
     # ---------- persistence ----------
     def _load_state(self) -> dict:
         if self.state_path.exists():
-            return json.loads(self.state_path.read_text())
+            return json.loads(self.state_path.read_text(encoding="utf-8"))
         return {"halted": False, "halt_reason": None, "last_bar": None, "params": None,
                 "bars_since_refit": 0, "equity": [], "peak": None, "day": None,
                 "day_start_equity": None, "errors": 0}
 
     def _save(self) -> None:
-        self.state_path.write_text(json.dumps(self.state, indent=2, default=str))
+        self.state_path.write_text(json.dumps(self.state, indent=2, default=str), encoding="utf-8")
 
     def log(self, event: str, **kw) -> dict:
         rec = {"ts": pd.Timestamp(self.clock(), unit="s", tz="UTC").isoformat(), "event": event,
                "mode": self.cfg.mode, "symbol": self.cfg.symbol, **kw}
         line = json.dumps(rec, default=str)
         print(line, flush=True)
-        with self.log_path.open("a") as f:
+        with self.log_path.open("a", encoding="utf-8") as f:
             f.write(line + "\n")
         return rec
 
@@ -225,11 +225,11 @@ def clear_halt(cfg: BotConfig) -> None:
     d = Path(cfg.state_dir)
     sp = d / "runner.json"
     if sp.exists():
-        state = json.loads(sp.read_text())
+        state = json.loads(sp.read_text(encoding="utf-8"))
         state.update(halted=False, halt_reason=None, errors=0)
-        sp.write_text(json.dumps(state, indent=2, default=str))
+        sp.write_text(json.dumps(state, indent=2, default=str), encoding="utf-8")
     (d / "KILL").unlink(missing_ok=True)
     log = Path(cfg.log_dir) / "bot.jsonl"
     log.parent.mkdir(parents=True, exist_ok=True)
-    with log.open("a") as f:
+    with log.open("a", encoding="utf-8") as f:
         f.write(json.dumps({"ts": pd.Timestamp.now(tz="UTC").isoformat(), "event": "resume"}) + "\n")

@@ -6,6 +6,8 @@ strategy: ts_momentum      # ts_momentum | rsi_reversion  (see quantstack/strate
 
 # paper   : simulated fills against live prices, no keys needed
 # testnet : real orders on the exchange sandbox (needs testnet API keys)
+# demo    : exchange "demo trading" (Bybit): real market prices, fake balance;
+#           keys are created inside demo mode on your normal account
 # live    : REAL MONEY. Only trades while a passing, unexpired, code-matching
 #           validation report exists. Start with a small, dedicated sub-account.
 mode: paper

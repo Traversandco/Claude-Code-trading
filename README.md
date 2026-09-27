@@ -86,7 +86,7 @@ z-score, and a `shift(-1)`.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-pytest                          # 45 tests, offline
+pytest                          # 46 tests, offline
 quantstack demo                 # full pipeline on synthetic noise vs. a planted edge
 ```
 
@@ -107,6 +107,9 @@ quantstack run                        # autonomous loop (mode from config)
    (fees + slippage), and account state lives in `state/paper_account.json`.
 2. `mode: testnet` uses the exchange sandbox via ccxt. Put testnet keys in `.env`
    (see `.env.example`).
+   On Bybit, prefer `mode: demo`: demo trading uses real market prices, while
+   Bybit's testnet has thin, unrealistic order books. Create the demo API key from
+   inside "Demo Trading" on your normal Bybit account.
 3. `mode: live` is real money. Use a **dedicated sub-account**, because the bot treats
    the whole base-asset balance as its position. Keys should be trade-only, have **no
    withdrawal permission**, and be IP-whitelisted. Start with a small balance and keep

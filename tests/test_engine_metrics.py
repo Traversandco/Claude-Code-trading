@@ -54,5 +54,5 @@ def test_config_rejects_unsafe_settings(tmp_path):
         p.write_text(bad)
         with pytest.raises(ValueError):
             load_config(p)
-    p.write_text(open("config.example.yaml").read())
+    p.write_text(open("config.example.yaml", encoding="utf-8").read(), encoding="utf-8")
     assert load_config(p).mode == "paper"

@@ -123,13 +123,13 @@ def validate(cfg: BotConfig, bars: pd.DataFrame, strategy: Strategy | None = Non
 def save_report(cfg: BotConfig, report: dict) -> Path:
     p = report_path(cfg)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(report, indent=2, default=str))
+    p.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     return p
 
 
 def load_report(cfg: BotConfig) -> dict | None:
     p = report_path(cfg)
-    return json.loads(p.read_text()) if p.exists() else None
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
 
 def check_report(cfg: BotConfig, report: dict | None, strategy: Strategy | None = None,

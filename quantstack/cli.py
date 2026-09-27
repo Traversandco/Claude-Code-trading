@@ -3,7 +3,7 @@
   demo         full pipeline on synthetic data (offline, no keys)
   fetch        download/refresh OHLCV history
   validate     run the three gates, write the report
-  run          start the autonomous loop (paper | testnet | live per config)
+  run          start the autonomous loop (paper | testnet | demo | live per config)
   status       show bot state and validation status
   kill         create the kill switch (bot flattens and halts on next check)
   resume       clear a halt (human decision)
@@ -27,7 +27,7 @@ def _load_dotenv(path: str = ".env") -> None:
     p = Path(path)
     if not p.exists():
         return
-    for line in p.read_text().splitlines():
+    for line in p.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line and not line.startswith("#") and "=" in line:
             k, v = line.split("=", 1)
@@ -107,7 +107,8 @@ def build_runner(cfg: BotConfig):
         broker = PaperBroker(Path(cfg.state_dir) / "paper_account.json", cfg.initial_capital,
                              cfg.fee_bps, cfg.slippage_bps)
     else:
-        ex = make_exchange(cfg.exchange, testnet=(cfg.mode == "testnet"), auth=True)
+        ex = make_exchange(cfg.exchange, testnet=(cfg.mode == "testnet"),
+                           demo=(cfg.mode == "demo"), auth=True)
         broker = CcxtBroker(ex, cfg.symbol)
     return Runner(cfg, broker, feed)
 
@@ -133,7 +134,7 @@ def cmd_status(args) -> int:
     from .gates import check_report, load_report
     cfg = _cfg(args)
     sp = Path(cfg.state_dir) / "runner.json"
-    state = json.loads(sp.read_text()) if sp.exists() else {}
+    state = json.loads(sp.read_text(encoding="utf-8")) if sp.exists() else {}
     report = load_report(cfg)
     out = {
         "mode": cfg.mode,
@@ -152,7 +153,7 @@ def cmd_kill(args) -> int:
     cfg = _cfg(args)
     p = Path(cfg.state_dir) / "KILL"
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text("kill requested\n")
+    p.write_text("kill requested\n", encoding="utf-8")
     print(f"kill switch armed at {p}; the bot flattens and halts on its next check")
     return 0
 
@@ -172,7 +173,7 @@ def cmd_hypothesize(args) -> int:
     out.mkdir(parents=True, exist_ok=True)
     import time
     path = out / f"{int(time.time())}_{cfg.symbol.replace('/', '-')}_{cfg.timeframe}.md"
-    path.write_text(text)
+    path.write_text(text, encoding="utf-8")
     print(text)
     print(f"\nsaved → {path}  (implement as a Strategy subclass and register it to test)")
     return 0
