@@ -1,0 +1,46 @@
+# Copy to config.yaml and edit. config.yaml is git-ignored.
+exchange: binance          # any ccxt exchange id with spot + OHLCV (binance, kraken, coinbase, bybit, ...)
+symbol: BTC/USDT
+timeframe: 1d              # 1h, 4h, 1d ... periods-per-year is derived from this
+strategy: ts_momentum      # ts_momentum | rsi_reversion  (see quantstack/strategies)
+
+# paper   : simulated fills against live prices, no keys needed
+# testnet : real orders on the exchange sandbox (needs testnet API keys)
+# live    : REAL MONEY. Only trades while a passing, unexpired, code-matching
+#           validation report exists. Start with a small, dedicated sub-account.
+mode: paper
+
+history_bars: 1500         # bars used for validation and signal warm-up
+fee_bps: 10.0              # your actual taker fee, per side
+slippage_bps: 5.0          # must cover the typical close→next-open gap (critic item 5 checks)
+initial_capital: 10000     # paper account only
+
+data_dir: data
+state_dir: state
+report_dir: reports
+log_dir: logs
+
+risk:
+  risk_pct: 0.01           # equity lost if price moves atr_mult ATRs against you
+  max_position_pct: 0.20   # hard cap on exposure
+  atr_period: 14
+  atr_mult: 2.0
+  allow_short: false       # spot cannot short; true is rejected until a perp adapter exists
+  max_daily_loss_pct: 0.03 # halt + flatten
+  max_drawdown_pct: 0.15   # halt + flatten, from peak equity
+  max_order_notional: 5000 # fat-finger cap per order (quote currency)
+  min_trade_notional: 10
+  rebalance_threshold: 0.02
+  health_window: 90
+
+gates:
+  train_bars: 180
+  test_bars: 60            # also the live refit interval
+  min_positive_fold_frac: 0.6
+  worst_fold_tolerance: 1.0
+  min_oos_sharpe: 0.3
+  dsr_threshold: 0.95
+  max_plausible_sharpe: 2.0
+  min_regime_frac: 0.15
+  llm_critic: false        # true = Claude also reviews the code (needs ANTHROPIC_API_KEY)
+  report_max_age_days: 30  # the bot re-validates itself when the report expires

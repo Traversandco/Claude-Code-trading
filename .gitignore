@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+state/
+reports/
+research/
+logs/
+config.yaml
+.env

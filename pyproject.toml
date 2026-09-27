@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quantstack"
+version = "0.1.0"
+description = "Disciplined quant research stack and autonomous crypto trading bot with hard validation gates"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scipy>=1.11",
+    "pyyaml>=6",
+    "ccxt>=4.2",
+    "anthropic>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+quantstack = "quantstack.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["quantstack*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"

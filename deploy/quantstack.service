@@ -1,0 +1,24 @@
+# systemd unit: restarts on crashes, but NOT after a deliberate halt (exit 0) —
+# a halted bot needs a human: `quantstack status`, investigate, `quantstack resume`.
+#
+#   sudo cp deploy/quantstack.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now quantstack
+#   journalctl -u quantstack -f
+[Unit]
+Description=quantstack autonomous trading bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=quantstack
+WorkingDirectory=/opt/quantstack
+EnvironmentFile=/opt/quantstack/.env
+ExecStart=/opt/quantstack/.venv/bin/quantstack run -c /opt/quantstack/config.yaml
+Restart=on-failure
+RestartSec=60
+# exit 2 = refused to start (not validated), 3 = halted by a risk rule: stay down
+RestartPreventExitStatus=2 3
+
+[Install]
+WantedBy=multi-user.target

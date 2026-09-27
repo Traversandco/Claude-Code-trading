@@ -1,0 +1,9 @@
+numpy>=1.26
+pandas>=2.1
+scipy>=1.11
+pyyaml>=6
+ccxt>=4.2
+anthropic>=1.0
+
+[dev]
+pytest>=8

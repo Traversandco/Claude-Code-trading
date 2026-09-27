@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: quantstack
+Version: 0.1.0
+Summary: Disciplined quant research stack and autonomous crypto trading bot with hard validation gates
+Requires-Python: >=3.10
+Requires-Dist: numpy>=1.26
+Requires-Dist: pandas>=2.1
+Requires-Dist: scipy>=1.11
+Requires-Dist: pyyaml>=6
+Requires-Dist: ccxt>=4.2
+Requires-Dist: anthropic>=1.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
