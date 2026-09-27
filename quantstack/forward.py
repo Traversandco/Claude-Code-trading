@@ -53,12 +53,14 @@ def wanted_candidates(cfg: BotConfig) -> list[dict]:
     raw = cfg.forward.candidates or [{"strategy": name} for name in REGISTRY]
     out = []
     for c in raw:
+        c = {"strategy": c} if isinstance(c, str) else c
         strat = get_strategy(c["strategy"])     # fails loudly on typos
         symbol = c.get("symbol", cfg.symbol)
+        tf = c.get("timeframe", strat.default_timeframe or cfg.timeframe)
         h = code_hash(strat)
-        cid = f"{strat.name}_{symbol.replace('/', '-')}_{cfg.timeframe}_{h[:8]}"
+        cid = f"{strat.name}_{symbol.replace('/', '-')}_{tf}_{h[:8]}"
         out.append({"id": cid, "strategy": strat.name, "symbol": symbol,
-                    "timeframe": cfg.timeframe, "code_hash": h})
+                    "timeframe": tf, "code_hash": h})
     return out
 
 
@@ -87,7 +89,7 @@ def sync_registry(cfg: BotConfig, now: float | None = None) -> list[dict]:
 
 def candidate_config(cfg: BotConfig, cand: dict) -> BotConfig:
     c = copy.deepcopy(cfg)
-    c.strategy, c.symbol = cand["strategy"], cand["symbol"]
+    c.strategy, c.symbol, c.timeframe = cand["strategy"], cand["symbol"], cand["timeframe"]
     c.mode = "paper"
     c.state_dir = str(_dir(cfg) / cand["id"])
     c.log_dir = str(Path(cfg.log_dir) / "forward" / cand["id"])
@@ -108,9 +110,36 @@ def build_runners(cfg: BotConfig, feed_factory=None, clock=time.time) -> list[tu
     return runners
 
 
+def build_demo_runner(cfg: BotConfig, feed_factory=None, clock=time.time,
+                      exchange_factory=None) -> tuple[dict, Runner] | None:
+    """The one candidate that also trades the exchange demo account."""
+    if not cfg.forward.demo_candidate:
+        return None
+    from .broker import CcxtBroker
+    from .data import load_history, make_exchange
+    want = cfg.forward.demo_candidate
+    want = {"strategy": want} if isinstance(want, str) else dict(want)
+    tmp = copy.deepcopy(cfg)
+    tmp.forward.candidates = [want]
+    cand = wanted_candidates(tmp)[0]
+    c = candidate_config(cfg, cand)
+    c.mode = "demo"
+    c.state_dir = str(_dir(cfg) / f"{cand['id']}_exchange_demo")
+    c.log_dir = str(Path(cfg.log_dir) / "forward" / f"{cand['id']}_exchange_demo")
+    ex = (exchange_factory or (lambda: make_exchange(cfg.exchange, demo=True, auth=True)))()
+    broker = CcxtBroker(ex, c.symbol)
+    feed_factory = feed_factory or (lambda cc: (lambda: load_history(cc)))
+    # Runner re-checks that this broker really is a demo endpoint.
+    return {**cand, "id": f"{cand['id']}_exchange_demo"}, Runner(c, broker, feed_factory(c),
+                                                                 clock=clock, forward=True)
+
+
 def run_forward(cfg: BotConfig, once: bool = False, feed_factory=None, clock=time.time,
-                sleep=time.sleep, delay_seconds: float = 15.0) -> None:
+                sleep=time.sleep, delay_seconds: float = 15.0, exchange_factory=None) -> None:
     runners = build_runners(cfg, feed_factory, clock)
+    demo = build_demo_runner(cfg, feed_factory, clock, exchange_factory)
+    if demo:
+        runners.append(demo)
     print(json.dumps({"event": "forward_start", "candidates": [c["id"] for c, _ in runners]}), flush=True)
     while True:
         for cand, r in runners:

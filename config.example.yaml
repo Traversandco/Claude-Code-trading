@@ -50,11 +50,18 @@ gates:
   report_max_age_days: 30  # the bot re-validates itself when the report expires
 
 # quantstack forward: every candidate on its own SIMULATED account, live prices,
-# no validation needed, never touches the exchange. Changing a strategy's code
-# retires its record and starts a new one; every candidate ever counts as a trial.
+# no validation needed, never touches a real-money account. Changing a strategy's
+# code retires its record and starts a new one; every candidate ever counts as a trial.
 forward:
   min_bars: 90             # no verdict before this many live bars
-  candidates: []           # empty = every strategy on `symbol`. Or e.g.:
-  #  - strategy: ts_momentum
-  #  - strategy: funding_crowding
-  #  - {strategy: funding_crowding, symbol: ETH/USDT}
+  candidates:              # empty = every strategy on `symbol` at its native timeframe
+    - funding_crowding
+    - ts_momentum
+    - rsi_reversion
+    - ml_direction
+    - {strategy: hlhb, timeframe: 4h}
+    - {strategy: funding_crowding, symbol: ETH/USDT}
+  # One candidate ALSO trades your exchange DEMO account (fake money, real orders).
+  # Needs demo API keys in .env. Unvalidated strategies can only ever reach a demo
+  # endpoint; the bot checks the exchange URL itself.
+  demo_candidate: funding_crowding

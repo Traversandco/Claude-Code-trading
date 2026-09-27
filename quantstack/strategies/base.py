@@ -23,6 +23,8 @@ class Strategy(ABC):
     param_grid: dict[str, list] = {}
     # Extra data columns beyond OHLCV the signal needs (e.g. "funding").
     requires: tuple[str, ...] = ()
+    # Timeframe the strategy was designed for; forward testing defaults to it.
+    default_timeframe: str | None = None
 
     @abstractmethod
     def signal(self, bars: pd.DataFrame, **params) -> pd.Series:

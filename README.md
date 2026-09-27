@@ -86,7 +86,7 @@ z-score, and a `shift(-1)`.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-pytest                          # 60 tests, offline
+pytest                          # 69 tests, offline
 quantstack demo                 # full pipeline on synthetic noise vs. a planted edge
 ```
 
@@ -140,6 +140,10 @@ quantstack scoreboard     # returns, Sharpe, drawdown, trades, fees, verdict
 - **Honest about time.** Until `min_bars`, the verdict is TOO EARLY, and the
   scoreboard shows roughly how many bars the current Sharpe needs before it means
   anything. On daily bars a true Sharpe of 1 needs years, not weeks.
+- **Optional exchange demo.** `forward.demo_candidate` makes one candidate also trade
+  your exchange's demo account, exercising the real order path. Unvalidated strategies
+  may only reach a demo endpoint: the runner inspects the exchange URL and refuses
+  anything else.
 - **It informs; it does not unlock.** A PROMISING candidate still has to pass
   `quantstack validate` before `quantstack run` will trade it.
 
@@ -203,6 +207,8 @@ monitoring are autonomous.
 | `ts_momentum` | price | Late and forced traders chasing and liquidating into moves |
 | `rsi_reversion` | price | Forced sellers paying for immediacy after sharp drops |
 | `funding_crowding` | price + perp funding | Over-levered longs liquidated at crowded tops; crowded shorts squeezed |
+| `hlhb` (4h) | price | Port of freqtrade-strategies `hlhb`: entry rules kept, hyperopted ROI/stop numbers dropped |
+| `ml_direction` | price | Idea from asavinov/intelligent-trading-bot: ridge-logistic model on trailing features, purged labels, params chosen on held-out data |
 
 `funding_crowding` was written and its 4-point grid fixed *before* any real data was
 looked at: trend-following long, flat when 7-day average funding exceeds 3x or 5x the

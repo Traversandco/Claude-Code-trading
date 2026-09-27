@@ -144,3 +144,12 @@ class CcxtBroker(Broker):
         avg = float(order.get("average") or order.get("price") or price)
         fee = float((order.get("fee") or {}).get("cost") or 0.0)
         return Fill(time.time(), side, filled, avg, fee, str(order.get("id", "")))
+
+
+def is_exchange_demo(broker: Broker) -> bool:
+    """True only if the broker's private API points at an exchange DEMO endpoint."""
+    if not isinstance(broker, CcxtBroker):
+        return False
+    api = broker.ex.urls.get("api", {})
+    hosts = api.values() if isinstance(api, dict) else [api]
+    return bool(hosts) and all("api-demo" in str(h) for h in hosts)

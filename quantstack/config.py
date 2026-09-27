@@ -78,6 +78,9 @@ class ForwardConfig:
     # registered strategy on the main symbol.
     candidates: list = field(default_factory=list)
     min_bars: int = 90                  # no verdict before this many live bars
+    # Optional: ONE candidate also trades on the exchange DEMO account (fake money,
+    # real order path). e.g. "funding_crowding" or {"strategy": ..., "symbol": ...}
+    demo_candidate: object = None
 
 
 @dataclass

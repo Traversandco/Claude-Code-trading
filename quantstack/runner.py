@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .broker import Broker, PaperBroker
+from .broker import Broker, PaperBroker, is_exchange_demo
 from .config import BotConfig
 from .gates import check_report, load_report, save_report, validate
 from .health import health_check
@@ -32,8 +32,9 @@ class Runner:
                  clock=time.time, auto_revalidate: bool = True, forward: bool = False):
         # forward=True: an unvalidated candidate on a simulated account, to build an
         # out-of-sample record. Only ever allowed with a PaperBroker.
-        if forward and not isinstance(broker, PaperBroker):
-            raise ValueError("forward testing is paper-only: unvalidated strategies never touch an exchange")
+        if forward and not (isinstance(broker, PaperBroker) or is_exchange_demo(broker)):
+            raise ValueError("forward testing is paper/demo-only: unvalidated strategies never "
+                             "touch a real-money account")
         self.forward = forward
         self.cfg = cfg
         self.broker = broker

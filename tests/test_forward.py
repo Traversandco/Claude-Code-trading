@@ -29,6 +29,7 @@ class Clock:
 
 
 def test_forward_runs_all_candidates_without_validation_on_separate_accounts(cfg, bars):
+    cfg.forward.candidates = ["ts_momentum", "rsi_reversion", "funding_crowding"]   # daily test data
     clk = Clock(bars, 900)
     for _ in range(40):
         fw.run_forward(cfg, once=True, feed_factory=clk.feed_factory, clock=clk.now)
@@ -77,10 +78,11 @@ def test_scoreboard_too_early_then_verdict(cfg, bars):
 
 def test_forward_mode_refuses_real_exchange_broker(cfg, bars):
     class Ex:
+        urls = {"api": {"spot": "https://api.bybit.com"}}
         def load_markets(self): pass
         def market(self, s): return {"base": "BTC", "quote": "USDT", "limits": {}}
-    with pytest.raises(ValueError, match="paper-only"):
-        Runner(cfg, CcxtBroker(Ex(), "BTC/USDT"), lambda: bars, forward=True)
+    with pytest.raises(ValueError, match="real-money"):
+        Runner(cfg, CcxtBroker(Ex(), "BTC/USDT"), lambda: bars, forward=True)  # no urls: not demo
 
 
 def test_forward_is_paper_even_when_config_says_live(cfg, bars):
@@ -113,3 +115,64 @@ def test_shared_cache_keeps_funding_when_other_strategy_refreshes(tmp_path, monk
     load_history(BotConfig(strategy="ts_momentum", history_bars=300, data_dir=str(tmp_path)), exchange=ex)
     again = load_history(f_cfg, refresh=False)
     assert again["funding"].notna().mean() > 0.95
+
+
+class DemoEx:
+    """Fake ccxt exchange; `demo` decides which endpoint it claims to use."""
+
+    def __init__(self, demo=True):
+        host = "https://api-demo.bybit.com" if demo else "https://api.bybit.com"
+        self.urls = {"api": {"spot": host, "private": host}}
+        self.orders = []
+        self.bal = {"BTC": {"total": 0.0}, "USDT": {"total": 10_000.0}}
+        self.px = 20_000.0
+
+    def load_markets(self): pass
+    def market(self, s): return {"base": "BTC", "quote": "USDT", "limits": {}}
+    def fetch_ticker(self, s): return {"last": self.px}
+    def fetch_balance(self): return self.bal
+    def amount_to_precision(self, s, a): return f"{a:.6f}"
+
+    def create_order(self, s, t, side, amt, price=None):
+        self.orders.append((side, amt))
+        sign = 1 if side == "buy" else -1
+        self.bal["BTC"]["total"] += sign * amt
+        self.bal["USDT"]["total"] -= sign * amt * self.px
+        return {"id": str(len(self.orders)), "filled": amt, "average": self.px}
+
+    def fetch_order(self, oid, s):
+        side, amt = self.orders[int(oid) - 1]
+        return {"id": oid, "filled": amt, "average": self.px, "fee": {"cost": 0.0}}
+
+
+def test_demo_candidate_trades_exchange_demo_account(cfg, bars):
+    cfg.forward.candidates = ["ts_momentum", "funding_crowding"]
+    cfg.forward.demo_candidate = "funding_crowding"
+    clk = Clock(bars, 900)
+    ex = DemoEx(demo=True)
+    for _ in range(40):
+        ex.px = float(bars["close"].iloc[clk.i - 1])
+        fw.run_forward(cfg, once=True, feed_factory=clk.feed_factory, clock=clk.now,
+                       exchange_factory=lambda: ex)
+        clk.i += 1
+    assert ex.orders, "demo candidate never traded"
+    # the demo mirror is not a separate trial: registry holds only the paper candidates
+    assert fw.scoreboard(cfg)["n_trials"] == 2
+
+
+def test_unvalidated_strategy_can_never_reach_a_live_endpoint(cfg, bars):
+    from quantstack.broker import CcxtBroker
+    cfg.forward.demo_candidate = "funding_crowding"
+    clk = Clock(bars, 900)
+    with pytest.raises(ValueError, match="real-money"):
+        fw.run_forward(cfg, once=True, feed_factory=clk.feed_factory, clock=clk.now,
+                       exchange_factory=lambda: DemoEx(demo=False))
+    with pytest.raises(ValueError, match="real-money"):
+        Runner(cfg, CcxtBroker(DemoEx(demo=False), "BTC/USDT"), lambda: bars, forward=True)
+
+
+def test_default_candidates_use_native_timeframes(cfg):
+    cands = fw.wanted_candidates(cfg)
+    tf = {c["strategy"]: c["timeframe"] for c in cands}
+    assert tf["hlhb"] == "4h" and tf["funding_crowding"] == "1d"
+    assert len(cands) == 5
