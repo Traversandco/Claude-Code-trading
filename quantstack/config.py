@@ -56,6 +56,10 @@ class GateConfig:
     train_bars: int = 180
     test_bars: int = 60
     min_positive_fold_frac: float = 0.6
+    # A fold is judged only if a position was held this share of its bars. Folds
+    # that are ~entirely flat have a meaningless Sharpe (one exit fee / tiny std).
+    # 10%, not higher: dip-buying strategies are rightly out of the market most days.
+    min_fold_in_market: float = 0.10
     # Worst fold may not be worse than the expected worst fold of a ZERO-skill
     # strategy over the same number of folds (x tolerance). A fixed floor like -1
     # is unreachable: a 60-bar daily fold Sharpe has a standard error of ~2.5.

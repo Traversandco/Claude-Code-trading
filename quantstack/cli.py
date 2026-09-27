@@ -81,7 +81,7 @@ def cmd_fetch(args) -> int:
     from .data import load_history
     cfg = _cfg(args)
     bars = load_history(cfg)
-    print(f"{len(bars)} closed bars {bars.index[0]} → {bars.index[-1]}")
+    print(f"{len(bars)} closed bars {bars.index[0]} -> {bars.index[-1]}")
     return 0
 
 
@@ -93,7 +93,7 @@ def cmd_validate(args) -> int:
     report = validate(cfg, bars, use_llm=args.llm or None)
     path = save_report(cfg, report)
     print(json.dumps(_summary(report), indent=2, default=str))
-    print(f"\nreport → {path}")
+    print(f"\nreport -> {path}")
     return 0 if report["passed"] else 1
 
 
@@ -175,7 +175,7 @@ def cmd_hypothesize(args) -> int:
     path = out / f"{int(time.time())}_{cfg.symbol.replace('/', '-')}_{cfg.timeframe}.md"
     path.write_text(text, encoding="utf-8")
     print(text)
-    print(f"\nsaved → {path}  (implement as a Strategy subclass and register it to test)")
+    print(f"\nsaved -> {path}  (implement as a Strategy subclass and register it to test)")
     return 0
 
 
@@ -199,8 +199,8 @@ def main(argv=None) -> int:
 
     d = sub.add_parser("demo")
     d.add_argument("--bars", type=int, default=1500)
-    d.add_argument("--seed", type=int, default=1)
-    d.add_argument("--edge", type=float, default=0.4, help="strength of the planted persistent drift")
+    d.add_argument("--seed", type=int, default=2)
+    d.add_argument("--edge", type=float, default=0.5, help="strength of the planted persistent drift")
     d.set_defaults(fn=cmd_demo)
 
     for name, fn in (("fetch", cmd_fetch), ("validate", cmd_validate), ("run", cmd_run),
@@ -215,6 +215,13 @@ def main(argv=None) -> int:
         if name == "run":
             p.add_argument("--once", action="store_true", help="process one bar and exit")
 
+    # Windows consoles and pipes (e.g. `| Set-Clipboard`) default to cp1252, which
+    # cannot encode every character Claude or a strategy description may contain.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except (AttributeError, ValueError):
+            pass
     args = ap.parse_args(argv)
     return args.fn(args)
 

@@ -21,5 +21,6 @@ def noise_bars():
 
 @pytest.fixture(scope="session")
 def edge_bars():
-    # Seed/strength chosen so the planted persistent-drift edge clears all three gates.
-    return synthetic_bars(1500, seed=1, trend_strength=0.4)
+    # A planted persistent-drift edge that clears all three gates with margin, at
+    # fold-activity thresholds of 5%, 10% and 25% alike (not on a hairline).
+    return synthetic_bars(1500, seed=2, trend_strength=0.5)

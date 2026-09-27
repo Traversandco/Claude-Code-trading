@@ -39,6 +39,7 @@ gates:
   train_bars: 180
   test_bars: 60            # also the live refit interval
   min_positive_fold_frac: 0.6
+  min_fold_in_market: 0.10  # folds spent ~entirely flat are not judged
   worst_fold_tolerance: 1.0
   min_oos_sharpe: 0.3
   dsr_threshold: 0.95

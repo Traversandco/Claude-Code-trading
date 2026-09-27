@@ -59,7 +59,8 @@ def validate(cfg: BotConfig, bars: pd.DataFrame, strategy: Strategy | None = Non
         ledger.record(strategy.name, params, universe, per_period_sharpe(bt["net"]), len(bt))
 
     # Gate 3 — walk-forward.
-    wf = walkforward.walk_forward(bars, strategy, bcfg, risk, g.train_bars, g.test_bars)
+    wf = walkforward.walk_forward(bars, strategy, bcfg, risk, g.train_bars, g.test_bars,
+                                  g.min_fold_in_market)
     oos_m = wf["oos_metrics"]
     oos_sharpe = oos_m.get("sharpe", 0.0)
     gate3_reasons = []

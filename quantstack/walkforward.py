@@ -11,7 +11,7 @@ from .strategies.base import Strategy
 
 def walk_forward(bars: pd.DataFrame, strategy: Strategy, cfg: Config, risk: RiskConfig,
                  train_bars: int = 180, test_bars: int = 60,
-                 min_in_market: float = 0.25) -> dict:
+                 min_in_market: float = 0.10) -> dict:
     """
     Each fold: fit params on the train window only, then compute exposure for the
     test window. Indicators may warm up on any bars BEFORE the test window (that
