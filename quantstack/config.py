@@ -55,6 +55,9 @@ class RiskConfig:
 class GateConfig:
     train_bars: int = 180
     test_bars: int = 60
+    # If set, these override the bar counts: 30 days is 30 bars on 1d, 2,880 on 15m.
+    train_days: float | None = None
+    test_days: float | None = None
     min_positive_fold_frac: float = 0.6
     # A fold is judged only if a position was held this share of its bars. Folds
     # that are ~entirely flat have a meaningless Sharpe (one exit fee / tiny std).
@@ -110,6 +113,20 @@ class BotConfig:
     @property
     def bar_seconds(self) -> int:
         return TIMEFRAME_SECONDS[self.timeframe]
+
+    @property
+    def bars_per_day(self) -> float:
+        return 86_400 / self.bar_seconds
+
+    @property
+    def train_bars(self) -> int:
+        g = self.gates
+        return int(round(g.train_days * self.bars_per_day)) if g.train_days else g.train_bars
+
+    @property
+    def test_bars(self) -> int:
+        g = self.gates
+        return int(round(g.test_days * self.bars_per_day)) if g.test_days else g.test_bars
 
     def backtest_config(self) -> Config:
         return Config(

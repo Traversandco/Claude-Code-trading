@@ -59,7 +59,7 @@ def validate(cfg: BotConfig, bars: pd.DataFrame, strategy: Strategy | None = Non
         ledger.record(strategy.name, params, universe, per_period_sharpe(bt["net"]), len(bt))
 
     # Gate 3 — walk-forward.
-    wf = walkforward.walk_forward(bars, strategy, bcfg, risk, g.train_bars, g.test_bars,
+    wf = walkforward.walk_forward(bars, strategy, bcfg, risk, cfg.train_bars, cfg.test_bars,
                                   g.min_fold_in_market)
     oos_m = wf["oos_metrics"]
     oos_sharpe = oos_m.get("sharpe", 0.0)
@@ -69,7 +69,7 @@ def validate(cfg: BotConfig, bars: pd.DataFrame, strategy: Strategy | None = Non
         gate3_reasons.append(f"only {wf['n_active_folds']} folds with a position (need {min_active})")
     if wf["positive_frac"] < g.min_positive_fold_frac:
         gate3_reasons.append(f"positive folds {wf['positive_folds']} < {g.min_positive_fold_frac:.0%}")
-    fold_se = np.sqrt(cfg.periods_per_year / g.test_bars)
+    fold_se = np.sqrt(cfg.periods_per_year / cfg.test_bars)
     worst_floor = round(-g.worst_fold_tolerance * expected_max_sharpe(max(wf["n_active_folds"], 2), fold_se ** 2), 2)
     if wf["worst_fold"] < worst_floor:
         gate3_reasons.append(f"worst fold Sharpe {wf['worst_fold']} < {worst_floor} (zero-skill expectation)")
@@ -86,8 +86,11 @@ def validate(cfg: BotConfig, bars: pd.DataFrame, strategy: Strategy | None = Non
     gate1_ok = critic["passed"] and (llm is None or llm["passed"])
 
     # Gate 2 — deflated Sharpe on the stitched out-of-sample returns.
+    # Trying an idea on another timeframe of the same market is also a trial, so the
+    # count spans every timeframe; the Sharpe-variance estimate stays per timeframe
+    # because per-bar Sharpes are not comparable across bar sizes.
     dsr = deflated_sharpe_from_returns(
-        wf["oos"]["net"], ledger.n_trials(universe), ledger.sharpes(universe),
+        wf["oos"]["net"], ledger.n_trials_prefix(f"{cfg.exchange}:{cfg.symbol}:"), ledger.sharpes(universe),
         cfg.periods_per_year, g.dsr_threshold,
     )
 

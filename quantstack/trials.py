@@ -47,6 +47,10 @@ class TrialLedger:
         """Counts across ALL strategies: choosing between strategies is also selection."""
         return len(self.sharpes(universe))
 
+    def n_trials_prefix(self, prefix: str) -> int:
+        """Trials on any universe starting with prefix, e.g. every timeframe of a symbol."""
+        return sum(1 for e in self._entries.values() if e["universe"].startswith(prefix))
+
     def sharpes(self, universe: str | None = None) -> list[float]:
         return [e["sharpe_pp"] for e in self._entries.values()
                 if universe is None or e["universe"] == universe]

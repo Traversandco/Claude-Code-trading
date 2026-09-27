@@ -2,6 +2,7 @@ from .base import Strategy
 from .batch1 import BullDipBuy, DonchianBreakout, FundingSqueeze, VolSqueezeBreakout
 from .funding_crowding import FundingCrowding
 from .hlhb import Hlhb
+from .intraday import LiquidationRebound, SessionBreakout
 from .ml_direction import MlDirection
 from .rsi_reversion import RsiReversion
 from .ts_momentum import TimeSeriesMomentum
@@ -16,6 +17,8 @@ REGISTRY: dict[str, type[Strategy]] = {
     VolSqueezeBreakout.name: VolSqueezeBreakout,
     FundingSqueeze.name: FundingSqueeze,
     BullDipBuy.name: BullDipBuy,
+    SessionBreakout.name: SessionBreakout,
+    LiquidationRebound.name: LiquidationRebound,
 }
 
 

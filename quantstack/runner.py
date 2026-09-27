@@ -162,12 +162,12 @@ class Runner:
         g = cfg.gates
         if self.state["params"] is None:
             if self.forward or self.report is None:
-                self.state["params"] = self.strategy.fit(bars.iloc[-g.train_bars:], cfg.backtest_config(), risk)
+                self.state["params"] = self.strategy.fit(bars.iloc[-cfg.train_bars:], cfg.backtest_config(), risk)
             else:
                 self.state["params"] = self.report["live_params"]
             self.state["bars_since_refit"] = 0
-        elif self.state["bars_since_refit"] >= g.test_bars:
-            self.state["params"] = self.strategy.fit(bars.iloc[-g.train_bars:], cfg.backtest_config(), risk)
+        elif self.state["bars_since_refit"] >= cfg.test_bars:
+            self.state["params"] = self.strategy.fit(bars.iloc[-cfg.train_bars:], cfg.backtest_config(), risk)
             self.state["bars_since_refit"] = 0
             self.log("refit", params=self.state["params"])
         params = self.state["params"]

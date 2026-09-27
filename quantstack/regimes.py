@@ -8,7 +8,11 @@ from .metrics import metrics
 
 
 def regime_labels(close: pd.Series, ma_len: int = 200, band: float = 0.02) -> pd.Series:
-    ma = close.rolling(ma_len, min_periods=ma_len).mean()
+    """Bull/bear/chop relative to the 200-DAY average of daily closes, for any bar
+    size. Each day's average only becomes usable after that day has closed."""
+    daily = close.resample("1D").last().dropna()
+    ma = daily.rolling(ma_len, min_periods=ma_len).mean().shift(1)
+    ma = ma.reindex(close.index.floor("1D")).set_axis(close.index)
     lab = pd.Series("chop", index=close.index)
     lab[close > ma * (1 + band)] = "bull"
     lab[close < ma * (1 - band)] = "bear"

@@ -1,4 +1,5 @@
 # Copy to config.yaml and edit. config.yaml is git-ignored.
+# For 15-minute intraday trading on Bybit, start from config.intraday.example.yaml instead.
 exchange: binance          # any ccxt exchange id with spot + OHLCV (binance, kraken, coinbase, bybit, ...)
 symbol: BTC/USDT
 # perp_symbol: BTC/USDT:USDT   # funding source for funding_crowding (derived by default)
@@ -59,7 +60,6 @@ forward:
     - ts_momentum
     - rsi_reversion
     - ml_direction
-    - {strategy: hlhb, timeframe: 4h}
     - {strategy: funding_crowding, symbol: ETH/USDT}
   # One candidate ALSO trades your exchange DEMO account (fake money, real orders).
   # Needs demo API keys in .env. Unvalidated strategies can only ever reach a demo

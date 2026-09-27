@@ -86,7 +86,7 @@ z-score, and a `shift(-1)`.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-pytest                          # 72 tests, offline
+pytest                          # 79 tests, offline
 quantstack demo                 # full pipeline on synthetic noise vs. a planted edge
 ```
 
@@ -119,6 +119,20 @@ Run it under systemd with `deploy/quantstack.service`. It restarts on crashes bu
 stays down after a risk halt (exit 3) or a refusal to start (exit 2).
 
 ---
+
+## Intraday (15-minute) trading
+
+`config.intraday.example.yaml` is a ready Bybit setup on 15m candles:
+
+- Walk-forward windows are set in days (`train_days: 30`, `test_days: 7`), so they
+  mean the same thing on any bar size; `train_bars`/`test_bars` remain for bar counts.
+- The bull/bear sample check uses a 200-*day* average on any bar size, which is why
+  the config loads ~2 years of 15m history (70,000 bars).
+- Trials are counted across every timeframe of a symbol: trying one idea on 1d, 15m
+  and 5m is also selection.
+- Every 15m round trip is charged ~0.2% (fees + slippage). On 2 years of 15m noise,
+  individual strategies showed out-of-sample Sharpes up to 1.7; the gates rejected
+  all 24 runs.
 
 ## Searching for a strategy
 
@@ -225,6 +239,8 @@ monitoring are autonomous.
 | `vol_squeeze` | price | Batch 1: leverage built up in quiet markets forced out on breakout |
 | `funding_squeeze` | price + funding | Batch 1: crowded shorts (negative funding) squeezed |
 | `bull_dip` | price | Batch 1: leverage flushes inside an intact uptrend |
+| `session_breakout` (15m) | price | Batch 2: stops above the Asia-session range triggered when EU/US liquidity arrives |
+| `liquidation_rebound` (15m) | price + volume | Batch 2: forced liquidation selling on a crash bar with a volume spike, then recovery |
 | `ml_direction` | price | Idea from asavinov/intelligent-trading-bot: ridge-logistic model on trailing features, purged labels, params chosen on held-out data |
 
 `funding_crowding` was written and its 4-point grid fixed *before* any real data was

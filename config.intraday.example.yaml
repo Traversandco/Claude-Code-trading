@@ -1,0 +1,53 @@
+# Bybit, 15-minute candles. Copy over config.yaml:  copy config.intraday.example.yaml config.yaml
+# Every 15m round trip pays ~0.2% in fees + slippage; the backtest charges exactly that.
+exchange: bybit
+symbol: BTC/USDT
+timeframe: 15m
+strategy: session_breakout
+mode: paper                # paper | demo | live   (live needs a passing validation report)
+
+history_bars: 70000        # ~2 years of 15m bars: 200-day regime check + ~90 walk-forward folds
+fee_bps: 10.0              # Bybit spot taker 0.1% per side
+slippage_bps: 5.0
+initial_capital: 10000
+
+data_dir: data
+state_dir: state
+report_dir: reports
+log_dir: logs
+
+risk:
+  risk_pct: 0.01
+  max_position_pct: 0.20
+  atr_period: 14
+  atr_mult: 2.0
+  allow_short: false
+  max_daily_loss_pct: 0.03
+  max_drawdown_pct: 0.15
+  max_order_notional: 5000
+  min_trade_notional: 10
+  rebalance_threshold: 0.02
+  health_window: 672       # 7 days of 15m bars
+
+gates:
+  train_days: 30           # walk-forward windows in DAYS (2,880 / 672 bars at 15m)
+  test_days: 7             # also how often params are refitted live
+  min_positive_fold_frac: 0.6
+  min_fold_in_market: 0.10
+  worst_fold_tolerance: 1.0
+  min_oos_sharpe: 0.3
+  dsr_threshold: 0.95
+  max_plausible_sharpe: 2.0
+  min_regime_frac: 0.15
+  llm_critic: false
+  report_max_age_days: 14  # intraday edges decay faster: re-validate every 2 weeks
+
+forward:
+  min_bars: 2880           # 30 days of 15m bars before any verdict
+  candidates:
+    - session_breakout
+    - liquidation_rebound
+    - ts_momentum
+    - ml_direction
+    - {strategy: session_breakout, symbol: ETH/USDT}
+  demo_candidate: session_breakout
