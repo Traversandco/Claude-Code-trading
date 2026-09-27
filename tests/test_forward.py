@@ -175,4 +175,5 @@ def test_default_candidates_use_native_timeframes(cfg):
     cands = fw.wanted_candidates(cfg)
     tf = {c["strategy"]: c["timeframe"] for c in cands}
     assert tf["hlhb"] == "4h" and tf["funding_crowding"] == "1d"
-    assert len(cands) == 5
+    from quantstack.strategies import REGISTRY
+    assert len(cands) == len(REGISTRY)

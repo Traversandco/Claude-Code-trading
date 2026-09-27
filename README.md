@@ -86,7 +86,7 @@ z-score, and a `shift(-1)`.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-pytest                          # 69 tests, offline
+pytest                          # 72 tests, offline
 quantstack demo                 # full pipeline on synthetic noise vs. a planted edge
 ```
 
@@ -119,6 +119,19 @@ Run it under systemd with `deploy/quantstack.service`. It restarts on crashes bu
 stays down after a risk halt (exit 3) or a refusal to start (exit 2).
 
 ---
+
+## Searching for a strategy
+
+```bash
+quantstack search                        # validate every registered strategy, ranked
+quantstack search donchian_breakout bull_dip --offline
+quantstack search --target-sharpe 1.5    # stop only at a pass that also reaches 1.5
+```
+
+Every strategy searched is logged as trials, so each one raises the bar for the
+rest. The search stops at the first strategy that passes all three gates. A target
+above the plausibility cap (2.0) cannot pass gate 1, so anything reaching it is
+listed as FLAGGED (suspected leakage) rather than passed.
 
 ## Forward testing: learning from live markets without fooling yourself
 
@@ -208,6 +221,10 @@ monitoring are autonomous.
 | `rsi_reversion` | price | Forced sellers paying for immediacy after sharp drops |
 | `funding_crowding` | price + perp funding | Over-levered longs liquidated at crowded tops; crowded shorts squeezed |
 | `hlhb` (4h) | price | Port of freqtrade-strategies `hlhb`: entry rules kept, hyperopted ROI/stop numbers dropped |
+| `donchian_breakout` | price | Batch 1: stops and short liquidations above N-day highs |
+| `vol_squeeze` | price | Batch 1: leverage built up in quiet markets forced out on breakout |
+| `funding_squeeze` | price + funding | Batch 1: crowded shorts (negative funding) squeezed |
+| `bull_dip` | price | Batch 1: leverage flushes inside an intact uptrend |
 | `ml_direction` | price | Idea from asavinov/intelligent-trading-bot: ridge-logistic model on trailing features, purged labels, params chosen on held-out data |
 
 `funding_crowding` was written and its 4-point grid fixed *before* any real data was

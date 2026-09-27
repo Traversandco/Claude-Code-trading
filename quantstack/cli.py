@@ -6,6 +6,7 @@
   run          start the autonomous loop (paper | testnet | demo | live per config)
   forward      forward-test all candidates side by side on simulated accounts
   scoreboard   forward-test results, deflated for every candidate ever registered
+  search       validate every strategy on real data, ranked; stops at the first that passes
   status       show bot state and validation status
   kill         create the kill switch (bot flattens and halts on next check)
   resume       clear a halt (human decision)
@@ -147,6 +148,67 @@ def cmd_scoreboard(args) -> int:
     return 0
 
 
+def search(cfg: BotConfig, names: list[str], target: float | None, offline: bool,
+           loader=None) -> list[dict]:
+    """Validate each strategy in turn (every run is logged as trials), rank them, and
+    stop at the first that passes all three gates (and reaches `target`, if given)."""
+    import copy
+
+    from .data import load_history
+    from .gates import save_report, validate
+    loader = loader or (lambda c: load_history(c, refresh=not offline))
+    cap = cfg.gates.max_plausible_sharpe
+    if target is not None and target > cap:
+        print(f"note: target Sharpe {target} is above the plausibility cap {cap}. Anything that "
+              f"reaches it fails gate 1 as suspected leakage; it will be listed as FLAGGED.",
+              file=sys.stderr)
+    rows = []
+    for name in names:
+        c = copy.deepcopy(cfg)
+        c.strategy = name
+        try:
+            bars = loader(c)
+            rep = validate(c, bars)
+        except Exception as e:
+            rows.append({"strategy": name, "verdict": f"ERROR {e}"})
+            continue
+        save_report(c, rep)
+        g = rep["gates"]
+        sharpe = rep["backtest_metrics"].get("sharpe")
+        failed = [k for k, v in g.items() if not v["passed"]]
+        only_cap = failed == ["1_no_leakage"] and g["1_no_leakage"]["critic"]["failed"] == ["9_sharpe_sanity"]
+        hit = rep["passed"] and (target is None or (sharpe or 0) >= target)
+        verdict = ("PASS" if hit else
+                   "FLAGGED: Sharpe above cap, treat as leakage" if only_cap else
+                   "passed gates, below target" if rep["passed"] else
+                   "fail " + ",".join(k.split("_", 1)[0] for k in failed))
+        rows.append({"strategy": name, "sharpe": sharpe,
+                     "dsr": g["2_deflated_sharpe"]["deflated_sharpe"],
+                     "n_trials": g["2_deflated_sharpe"]["n_trials"],
+                     "pos_folds": g["3_walk_forward"]["positive_folds"],
+                     "worst_fold": g["3_walk_forward"]["worst_fold"], "verdict": verdict})
+        print(f"  {name}: {verdict}", file=sys.stderr, flush=True)
+        if hit:
+            break
+    return rows
+
+
+def cmd_search(args) -> int:
+    from .strategies import REGISTRY
+    cfg = _cfg(args)
+    names = args.strategies or list(REGISTRY)
+    rows = search(cfg, names, args.target_sharpe, args.offline)
+    rows.sort(key=lambda r: -(r.get("sharpe") or -99))
+    print(f"search: {cfg.symbol} {cfg.timeframe}, {len(rows)} strategies validated "
+          f"(target: {'pass all gates' if args.target_sharpe is None else f'pass + Sharpe >= {args.target_sharpe}'})")
+    print(f"{'strategy':20s} {'sharpe':>7s} {'dsr':>6s} {'trials':>6s} {'folds+':>7s} {'worst':>6s}  verdict")
+    for r in rows:
+        print(f"{r['strategy']:20s} {str(r.get('sharpe', '-')):>7s} {str(r.get('dsr', '-')):>6s} "
+              f"{str(r.get('n_trials', '-')):>6s} {str(r.get('pos_folds', '-')):>7s} "
+              f"{str(r.get('worst_fold', '-')):>6s}  {r['verdict']}")
+    return 0 if any(r["verdict"] == "PASS" for r in rows) else 1
+
+
 def cmd_status(args) -> int:
     from .gates import check_report, load_report
     cfg = _cfg(args)
@@ -221,7 +283,7 @@ def main(argv=None) -> int:
     d.set_defaults(fn=cmd_demo)
 
     for name, fn in (("fetch", cmd_fetch), ("validate", cmd_validate), ("run", cmd_run),
-                     ("forward", cmd_forward), ("scoreboard", cmd_scoreboard),
+                     ("forward", cmd_forward), ("scoreboard", cmd_scoreboard), ("search", cmd_search),
                      ("status", cmd_status), ("kill", cmd_kill), ("resume", cmd_resume),
                      ("hypothesize", cmd_hypothesize), ("review", cmd_review)):
         p = sub.add_parser(name)
@@ -234,6 +296,10 @@ def main(argv=None) -> int:
             p.add_argument("--once", action="store_true", help="process one bar and exit")
         if name == "scoreboard":
             p.add_argument("--json", action="store_true")
+        if name == "search":
+            p.add_argument("strategies", nargs="*", help="default: every registered strategy")
+            p.add_argument("--target-sharpe", type=float, default=None)
+            p.add_argument("--offline", action="store_true", help="use cached data only")
 
     # Windows consoles and pipes (e.g. `| Set-Clipboard`) default to cp1252, which
     # cannot encode every character Claude or a strategy description may contain.

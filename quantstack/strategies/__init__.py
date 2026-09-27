@@ -1,4 +1,5 @@
 from .base import Strategy
+from .batch1 import BullDipBuy, DonchianBreakout, FundingSqueeze, VolSqueezeBreakout
 from .funding_crowding import FundingCrowding
 from .hlhb import Hlhb
 from .ml_direction import MlDirection
@@ -11,6 +12,10 @@ REGISTRY: dict[str, type[Strategy]] = {
     FundingCrowding.name: FundingCrowding,
     Hlhb.name: Hlhb,
     MlDirection.name: MlDirection,
+    DonchianBreakout.name: DonchianBreakout,
+    VolSqueezeBreakout.name: VolSqueezeBreakout,
+    FundingSqueeze.name: FundingSqueeze,
+    BullDipBuy.name: BullDipBuy,
 }
 
 
