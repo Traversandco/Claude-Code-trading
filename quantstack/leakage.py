@@ -27,8 +27,11 @@ def _perturb_after(bars: pd.DataFrame, t: int, rng: np.random.Generator) -> pd.D
     shock = np.exp(np.cumsum(rng.normal(0, 0.05, n)))
     for c in PRICE_COLS:
         out.iloc[t + 1:, out.columns.get_loc(c)] = bars[c].iloc[t + 1:].to_numpy() * shock * 1.37
-    if "volume" in out:
-        out.iloc[t + 1:, out.columns.get_loc("volume")] = rng.permutation(bars["volume"].iloc[t + 1:].to_numpy())
+    # Volume and any extra data (e.g. funding) after t: shuffled, so a signal that
+    # peeks at them changes.
+    for c in out.columns:
+        if c not in PRICE_COLS:
+            out.iloc[t + 1:, out.columns.get_loc(c)] = rng.permutation(bars[c].iloc[t + 1:].to_numpy()) * 1.37
     return out
 
 

@@ -21,6 +21,8 @@ class Strategy(ABC):
     # Who is on the other side, and why they lose. Required.
     mechanism: str = ""
     param_grid: dict[str, list] = {}
+    # Extra data columns beyond OHLCV the signal needs (e.g. "funding").
+    requires: tuple[str, ...] = ()
 
     @abstractmethod
     def signal(self, bars: pd.DataFrame, **params) -> pd.Series:

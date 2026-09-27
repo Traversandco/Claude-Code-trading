@@ -1,10 +1,12 @@
 from .base import Strategy
+from .funding_crowding import FundingCrowding
 from .rsi_reversion import RsiReversion
 from .ts_momentum import TimeSeriesMomentum
 
 REGISTRY: dict[str, type[Strategy]] = {
     TimeSeriesMomentum.name: TimeSeriesMomentum,
     RsiReversion.name: RsiReversion,
+    FundingCrowding.name: FundingCrowding,
 }
 
 

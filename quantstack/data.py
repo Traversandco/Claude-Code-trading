@@ -19,6 +19,11 @@ def _to_frame(rows: list[list]) -> pd.DataFrame:
     return df.astype(float)
 
 
+def _needs_funding(cfg: BotConfig) -> bool:
+    from .strategies import get_strategy
+    return "funding" in get_strategy(cfg.strategy).requires
+
+
 def closed_only(bars: pd.DataFrame, bar_seconds: int, now: float | None = None) -> pd.DataFrame:
     """Drop the still-forming candle. Trading on it is the live version of look-ahead."""
     now_ts = pd.Timestamp(now if now is not None else time.time(), unit="s", tz="UTC")
@@ -67,6 +72,52 @@ def fetch_ohlcv(exchange, symbol: str, timeframe: str, n_bars: int, bar_seconds:
     return closed_only(_to_frame(rows), bar_seconds, now).tail(n_bars)
 
 
+def perp_symbol(cfg: BotConfig) -> str:
+    """Spot BTC/USDT -> linear perpetual BTC/USDT:USDT (ccxt unified symbol)."""
+    if cfg.perp_symbol:
+        return cfg.perp_symbol
+    base, quote = cfg.symbol.split("/")
+    return f"{base}/{quote}:{quote}"
+
+
+def fetch_funding(exchange, symbol: str, since_ms: int, now: float | None = None) -> pd.Series:
+    """Settled funding rates (per funding interval), indexed by UTC settlement time."""
+    now_ms = int((now if now is not None else time.time()) * 1000)
+    rows: dict[int, float] = {}
+    since = since_ms
+    while since < now_ms:
+        batch = exchange.fetch_funding_rate_history(symbol, since=since, limit=200)
+        if not batch:
+            # Bybit returns nothing for a window before the perp listed; jump ahead.
+            since += 200 * 8 * 3_600_000
+            continue
+        for r in batch:
+            if r.get("fundingRate") is not None and r["timestamp"] <= now_ms:
+                rows[int(r["timestamp"])] = float(r["fundingRate"])
+        nxt = max(r["timestamp"] for r in batch) + 1
+        if nxt <= since:
+            break
+        since = nxt
+    if not rows:
+        return pd.Series(dtype=float, name="funding")
+    ser = pd.Series(rows, name="funding").sort_index()
+    ser.index = pd.to_datetime(ser.index, unit="ms", utc=True)
+    return ser
+
+
+def attach_funding(bars: pd.DataFrame, funding: pd.Series, bar_seconds: int) -> pd.DataFrame:
+    """Mean funding rate settled DURING each bar, [open, close). Every settlement in
+    that window happened before the bar closed, so the value is known at the close."""
+    out = bars.copy()
+    if funding.empty:
+        out["funding"] = np.nan
+        return out
+    opens = funding.index.floor(pd.Timedelta(seconds=bar_seconds))
+    per_bar = funding.groupby(opens).mean()
+    out["funding"] = per_bar.reindex(out.index)
+    return out
+
+
 def load_history(cfg: BotConfig, exchange=None, refresh: bool = True) -> pd.DataFrame:
     """Cached CSV + incremental refresh from the exchange."""
     path = Path(cfg.data_dir) / f"{cfg.exchange}_{cfg.symbol.replace('/', '-')}_{cfg.timeframe}.csv"
@@ -84,12 +135,22 @@ def load_history(cfg: BotConfig, exchange=None, refresh: bool = True) -> pd.Data
             else:
                 need = missing
         fresh = fetch_ohlcv(exchange, cfg.symbol, cfg.timeframe, max(need, 2), cfg.bar_seconds)
-        cached = fresh if cached is None else pd.concat([cached, fresh])
+        old_funding = cached["funding"] if cached is not None and "funding" in cached else None
+        cached = fresh if cached is None else pd.concat([cached[COLS], fresh])
         cached = cached[~cached.index.duplicated(keep="last")].sort_index()
+        if _needs_funding(cfg):
+            known = old_funding.dropna() if old_funding is not None else pd.Series(dtype=float)
+            start = cached.index[0] if known.empty else known.index[-1] - pd.Timedelta(days=3)
+            f = fetch_funding(exchange, perp_symbol(cfg), int(start.timestamp() * 1000))
+            cached = attach_funding(cached, f, cfg.bar_seconds)
+            if old_funding is not None:
+                cached["funding"] = cached["funding"].combine_first(old_funding.reindex(cached.index))
         path.parent.mkdir(parents=True, exist_ok=True)
         cached.to_csv(path, encoding="utf-8")
     if cached is None:
         raise FileNotFoundError(f"no cached data at {path}")
+    if _needs_funding(cfg) and ("funding" not in cached or cached["funding"].notna().sum() == 0):
+        raise RuntimeError(f"{cfg.strategy} needs funding data; run `quantstack fetch` (not --offline)")
     return cached.tail(cfg.history_bars)
 
 

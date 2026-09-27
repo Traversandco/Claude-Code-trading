@@ -1,8 +1,9 @@
 # Copy to config.yaml and edit. config.yaml is git-ignored.
 exchange: binance          # any ccxt exchange id with spot + OHLCV (binance, kraken, coinbase, bybit, ...)
 symbol: BTC/USDT
+# perp_symbol: BTC/USDT:USDT   # funding source for funding_crowding (derived by default)
 timeframe: 1d              # 1h, 4h, 1d ... periods-per-year is derived from this
-strategy: ts_momentum      # ts_momentum | rsi_reversion  (see quantstack/strategies)
+strategy: ts_momentum      # ts_momentum | rsi_reversion | funding_crowding  (see quantstack/strategies)
 
 # paper   : simulated fills against live prices, no keys needed
 # testnet : real orders on the exchange sandbox (needs testnet API keys)

@@ -76,6 +76,7 @@ class GateConfig:
 class BotConfig:
     exchange: str = "binance"
     symbol: str = "BTC/USDT"
+    perp_symbol: str | None = None      # for funding data; default BTC/USDT -> BTC/USDT:USDT
     timeframe: str = "1d"
     strategy: str = "ts_momentum"
     mode: str = "paper"                 # paper | testnet | demo | live

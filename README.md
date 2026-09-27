@@ -86,7 +86,7 @@ z-score, and a `shift(-1)`.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-pytest                          # 46 tests, offline
+pytest                          # 54 tests, offline
 quantstack demo                 # full pipeline on synthetic noise vs. a planted edge
 ```
 
@@ -172,6 +172,19 @@ saves it to `research/hypotheses/`. **The bot never imports or executes LLM-writ
 code.** A process holding exchange keys should not run generated code, so a human
 turns a hypothesis into a `Strategy`. From there, testing, gating, deployment and
 monitoring are autonomous.
+
+### Bundled strategies
+
+| Strategy | Data | Mechanism (who pays you) |
+|---|---|---|
+| `ts_momentum` | price | Late and forced traders chasing and liquidating into moves |
+| `rsi_reversion` | price | Forced sellers paying for immediacy after sharp drops |
+| `funding_crowding` | price + perp funding | Over-levered longs liquidated at crowded tops; crowded shorts squeezed |
+
+`funding_crowding` was written and its 4-point grid fixed *before* any real data was
+looked at: trend-following long, flat when 7-day average funding exceeds 3x or 5x the
+0.01%/8h baseline, long when funding is negative. It fetches the linear perp's funding
+history (`BTC/USDT` -> `BTC/USDT:USDT`) automatically; only spot is traded.
 
 ## Limitations
 
