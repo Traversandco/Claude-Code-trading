@@ -145,6 +145,9 @@ def load_history(cfg: BotConfig, exchange=None, refresh: bool = True) -> pd.Data
             cached = attach_funding(cached, f, cfg.bar_seconds)
             if old_funding is not None:
                 cached["funding"] = cached["funding"].combine_first(old_funding.reindex(cached.index))
+        elif old_funding is not None:
+            # The cache is shared per symbol: don't drop another strategy's funding data.
+            cached["funding"] = old_funding.reindex(cached.index)
         path.parent.mkdir(parents=True, exist_ok=True)
         cached.to_csv(path, encoding="utf-8")
     if cached is None:

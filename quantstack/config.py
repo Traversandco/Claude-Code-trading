@@ -73,6 +73,14 @@ class GateConfig:
 
 
 @dataclass
+class ForwardConfig:
+    # Each entry: {"strategy": name} plus optional "symbol". Empty = every
+    # registered strategy on the main symbol.
+    candidates: list = field(default_factory=list)
+    min_bars: int = 90                  # no verdict before this many live bars
+
+
+@dataclass
 class BotConfig:
     exchange: str = "binance"
     symbol: str = "BTC/USDT"
@@ -90,6 +98,7 @@ class BotConfig:
     log_dir: str = "logs"
     risk: RiskConfig = field(default_factory=RiskConfig)
     gates: GateConfig = field(default_factory=GateConfig)
+    forward: ForwardConfig = field(default_factory=ForwardConfig)
 
     @property
     def periods_per_year(self) -> int:
@@ -129,6 +138,7 @@ def load_config(path: str | Path) -> BotConfig:
     raw = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
     risk = RiskConfig(**raw.pop("risk", {}) or {})
     gates = GateConfig(**raw.pop("gates", {}) or {})
-    cfg = BotConfig(**raw, risk=risk, gates=gates)
+    forward = ForwardConfig(**raw.pop("forward", {}) or {})
+    cfg = BotConfig(**raw, risk=risk, gates=gates, forward=forward)
     cfg.validate()
     return cfg

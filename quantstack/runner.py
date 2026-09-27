@@ -29,7 +29,12 @@ MAX_CONSECUTIVE_ERRORS = 5
 
 class Runner:
     def __init__(self, cfg: BotConfig, broker: Broker, feed, strategy: Strategy | None = None,
-                 clock=time.time, auto_revalidate: bool = True):
+                 clock=time.time, auto_revalidate: bool = True, forward: bool = False):
+        # forward=True: an unvalidated candidate on a simulated account, to build an
+        # out-of-sample record. Only ever allowed with a PaperBroker.
+        if forward and not isinstance(broker, PaperBroker):
+            raise ValueError("forward testing is paper-only: unvalidated strategies never touch an exchange")
+        self.forward = forward
         self.cfg = cfg
         self.broker = broker
         self.feed = feed                    # feed() -> DataFrame of CLOSED bars
@@ -110,7 +115,7 @@ class Runner:
             return self.log("skip", reason="stale_data", last_bar=str(last), seconds_old=since_close)
 
         # Validation is a precondition for every single order, not just startup.
-        problems = check_report(cfg, self.report, self.strategy, now=now)
+        problems = [] if self.forward else check_report(cfg, self.report, self.strategy, now=now)
         if problems and self.auto_revalidate and self.report is not None and all("days old" in p for p in problems):
             self.log("revalidate", reason=problems)
             self.report = validate(cfg, bars, self.strategy)
@@ -143,17 +148,22 @@ class Runner:
         if equity < self.state["peak"] * (1 - risk.max_drawdown_pct):
             return self.halt(f"MAX_DRAWDOWN {equity / self.state['peak'] - 1:.2%}")
 
-        eq = pd.Series([e for _, e in self.state["equity"]], dtype=float)
-        live_returns = np.log(eq / eq.shift(1)).dropna()
-        hc = health_check(live_returns, self.report["backtest_metrics"], risk.health_window,
-                          cfg.periods_per_year)
-        if hc["action"] == "HALT":
-            return self.halt(f"HEALTH {hc['alerts']}")
+        hc = None
+        if not self.forward:   # a forward candidate has no backtest to decay from
+            eq = pd.Series([e for _, e in self.state["equity"]], dtype=float)
+            live_returns = np.log(eq / eq.shift(1)).dropna()
+            hc = health_check(live_returns, self.report["backtest_metrics"], risk.health_window,
+                              cfg.periods_per_year)
+            if hc["action"] == "HALT":
+                return self.halt(f"HEALTH {hc['alerts']}")
 
         # ----- the walk-forward protocol, continued live -----
         g = cfg.gates
         if self.state["params"] is None:
-            self.state["params"] = self.report["live_params"]
+            if self.forward or self.report is None:
+                self.state["params"] = self.strategy.fit(bars.iloc[-g.train_bars:], cfg.backtest_config(), risk)
+            else:
+                self.state["params"] = self.report["live_params"]
             self.state["bars_since_refit"] = 0
         elif self.state["bars_since_refit"] >= g.test_bars:
             self.state["params"] = self.strategy.fit(bars.iloc[-g.train_bars:], cfg.backtest_config(), risk)

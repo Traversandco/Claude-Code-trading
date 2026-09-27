@@ -86,7 +86,7 @@ z-score, and a `shift(-1)`.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-pytest                          # 54 tests, offline
+pytest                          # 60 tests, offline
 quantstack demo                 # full pipeline on synthetic noise vs. a planted edge
 ```
 
@@ -119,6 +119,29 @@ Run it under systemd with `deploy/quantstack.service`. It restarts on crashes bu
 stays down after a risk halt (exit 3) or a refusal to start (exit 2).
 
 ---
+
+## Forward testing: learning from live markets without fooling yourself
+
+Backtests can be overfit; data that did not exist when the rules were written
+cannot. `quantstack forward` runs every candidate side by side, each on its own
+**simulated** account at live prices with your real fees and slippage.
+
+```bash
+quantstack forward        # runs until stopped; every candidate, every bar
+quantstack scoreboard     # returns, Sharpe, drawdown, trades, fees, verdict
+```
+
+- **Paper only, always.** Unvalidated strategies never reach the exchange, even with
+  `mode: live`. Separate accounts are required anyway: one exchange demo account has
+  one balance, so strategies sharing it would corrupt each other's records.
+- **Pre-registered.** Each candidate is recorded with a date and a code hash. Edit a
+  strategy and its record is retired and a new one starts from zero. Nothing is
+  deleted, and every candidate ever registered counts toward the deflated Sharpe.
+- **Honest about time.** Until `min_bars`, the verdict is TOO EARLY, and the
+  scoreboard shows roughly how many bars the current Sharpe needs before it means
+  anything. On daily bars a true Sharpe of 1 needs years, not weeks.
+- **It informs; it does not unlock.** A PROMISING candidate still has to pass
+  `quantstack validate` before `quantstack run` will trade it.
 
 ## What the bot does every bar
 

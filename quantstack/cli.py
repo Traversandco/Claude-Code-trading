@@ -4,6 +4,8 @@
   fetch        download/refresh OHLCV history
   validate     run the three gates, write the report
   run          start the autonomous loop (paper | testnet | demo | live per config)
+  forward      forward-test all candidates side by side on simulated accounts
+  scoreboard   forward-test results, deflated for every candidate ever registered
   status       show bot state and validation status
   kill         create the kill switch (bot flattens and halts on next check)
   resume       clear a halt (human decision)
@@ -130,6 +132,21 @@ def cmd_run(args) -> int:
     return 0 if not runner.state["halted"] or runner.state["halt_reason"] == "KILL_SWITCH" else 3
 
 
+def cmd_forward(args) -> int:
+    from .forward import run_forward
+    cfg = _cfg(args)
+    print("forward test: simulated accounts only, no orders reach the exchange", file=sys.stderr)
+    run_forward(cfg, once=args.once)
+    return 0
+
+
+def cmd_scoreboard(args) -> int:
+    from .forward import format_scoreboard, scoreboard
+    sb = scoreboard(_cfg(args))
+    print(json.dumps(sb, indent=2, default=str) if args.json else format_scoreboard(sb))
+    return 0
+
+
 def cmd_status(args) -> int:
     from .gates import check_report, load_report
     cfg = _cfg(args)
@@ -204,6 +221,7 @@ def main(argv=None) -> int:
     d.set_defaults(fn=cmd_demo)
 
     for name, fn in (("fetch", cmd_fetch), ("validate", cmd_validate), ("run", cmd_run),
+                     ("forward", cmd_forward), ("scoreboard", cmd_scoreboard),
                      ("status", cmd_status), ("kill", cmd_kill), ("resume", cmd_resume),
                      ("hypothesize", cmd_hypothesize), ("review", cmd_review)):
         p = sub.add_parser(name)
@@ -212,8 +230,10 @@ def main(argv=None) -> int:
         if name == "validate":
             p.add_argument("--llm", action="store_true", help="also run the Claude critic")
             p.add_argument("--offline", action="store_true", help="use cached data only")
-        if name == "run":
+        if name in ("run", "forward"):
             p.add_argument("--once", action="store_true", help="process one bar and exit")
+        if name == "scoreboard":
+            p.add_argument("--json", action="store_true")
 
     # Windows consoles and pipes (e.g. `| Set-Clipboard`) default to cp1252, which
     # cannot encode every character Claude or a strategy description may contain.

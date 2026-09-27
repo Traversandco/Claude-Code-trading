@@ -48,3 +48,13 @@ gates:
   min_regime_frac: 0.15
   llm_critic: false        # true = Claude also reviews the code (needs ANTHROPIC_API_KEY)
   report_max_age_days: 30  # the bot re-validates itself when the report expires
+
+# quantstack forward: every candidate on its own SIMULATED account, live prices,
+# no validation needed, never touches the exchange. Changing a strategy's code
+# retires its record and starts a new one; every candidate ever counts as a trial.
+forward:
+  min_bars: 90             # no verdict before this many live bars
+  candidates: []           # empty = every strategy on `symbol`. Or e.g.:
+  #  - strategy: ts_momentum
+  #  - strategy: funding_crowding
+  #  - {strategy: funding_crowding, symbol: ETH/USDT}
