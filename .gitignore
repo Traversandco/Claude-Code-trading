@@ -9,3 +9,4 @@ research/
 logs/
 config.yaml
 .env
+*.egg-info/
